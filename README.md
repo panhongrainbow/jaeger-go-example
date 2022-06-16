@@ -37,9 +37,20 @@ $ make stop
 
 ### Debian 11:
 
-> Consider to install a single package from `Debian sid` to get better `Podman` experiences.
+> - Consider to install a single package from `Debian sid` to get better `Podman` experiences.
+> - Install stable Podman package first, then slightly upgrade Podman to the cutting edge version. It makes Debian more stable.
 
-Install necessary packages by using `Apt` command
+Install necessary `stable` packages by using `Apt` command
+
+```bash
+$ apt-get update
+
+$ apt-get install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev crun
+
+$ apt-get install libc6_2.33-7_amd64.deb libc6_2.33-7_i386.deb  podman-compose_1.0.3-2_all.deb
+```
+
+Check current Podman newest version
 
 ```bash
 $ cat << EOF >> /etc/apt/sources.list
@@ -50,10 +61,64 @@ EOF
 
 $ apt-get update
 
-$ apt-get --only-upgrade install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev
+$ apt search podman engine # newest vesion is 3.4.7
+# podman/unstable 3.4.7+ds1-3+b1 amd64 [upgradable from: 3.0.1+dfsg1-3+deb11u1]
+#   engine to run OCI-based containers in Pods
 ```
 
-## Configuration
+Gather newest Podman package
+
+```bash
+$ mkdir -p /var/lib/apt/podman/3.4.7
+$ cd /var/lib/apt/podman/3.4.7/
+
+$ apt-get --download-only --only-upgrade --no-install-recommends -o dir::cache=`pwd` install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose crun
+
+$ dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+```
+
+Close unstable repository and add specific downloaded repository
+
+```bash
+$ vim /etc/apt/sources.list
+# correct /etc/apt/sources.list in the following
+
+# unstable repo
+# deb http://deb.debian.org/debian/ unstable main
+# deb-src http://deb.debian.org/debian/ unstable main
+
+# Podman 3.4.7
+deb [trusted=yes] file:/var/lib/apt/podman/3.4.7 ./
+```
+
+Upgrade Podman
+
+```bash
+$ apt-get update
+
+$ apt-get --only-upgrade --no-install-recommends install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose libc6
+```
+
+Check Podman
+
+```bash
+$ podman --log-level=debug info
+# No error messages
+```
+
+Check Podman-compose
+
+```bash
+podman-compose --version
+['podman', '--version', '']
+using podman version: 3.4.7
+podman-composer version  1.0.3
+podman --version 
+podman version 3.4.7
+exit code: 0
+```
+
+## Rootless mode
 
 > Refer to [Basic Setup and Use of Podman in a Rootless environment](https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md). set up the `rootless mode` step by step.
 
