@@ -31,7 +31,7 @@ Stop and remove containers.
 $ make stop
 ```
 
-# Podman support
+# Podman Support
 
 ## Installation
 
@@ -45,16 +45,15 @@ Install necessary `stable` packages by using `Apt` command
 ```bash
 $ apt-get update
 
-$ apt-get install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev crun
-
-$ apt-get install libc6_2.33-7_amd64.deb libc6_2.33-7_i386.deb  podman-compose_1.0.3-2_all.deb
+# install all stable packages
+$ apt-get install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev crun libc6 podman-compose
 ```
 
 Check current Podman newest version
 
 ```bash
 $ cat << EOF >> /etc/apt/sources.list
-# unstable repo
+# [unstable repo]
 deb http://deb.debian.org/debian unstable main contrib non-free
 deb-src http://deb.debian.org/debian unstable main contrib non-free
 EOF
@@ -70,11 +69,12 @@ Gather newest Podman package
 
 ```bash
 $ mkdir -p /var/lib/apt/podman/3.4.7
+
 $ cd /var/lib/apt/podman/3.4.7/
+$ apt-get --download-only --only-upgrade --no-install-recommends -o dir::cache=`pwd` install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose crun libc6 podman-compose
 
-$ apt-get --download-only --only-upgrade --no-install-recommends -o dir::cache=`pwd` install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose crun
-
-$ dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+$ cd /var/lib/apt/podman/3.4.7/
+$ dpkg-scanpackages --multiversion . /dev/null | gzip -9c > Packages.gz
 ```
 
 Close unstable repository and add specific downloaded repository
@@ -83,12 +83,12 @@ Close unstable repository and add specific downloaded repository
 $ vim /etc/apt/sources.list
 # correct /etc/apt/sources.list in the following
 
-# unstable repo
+# [unstable repo]
 # deb http://deb.debian.org/debian/ unstable main
 # deb-src http://deb.debian.org/debian/ unstable main
 
 # Podman 3.4.7
-deb [trusted=yes] file:/var/lib/apt/podman/3.4.7 ./
+deb [trusted=yes] file:/var/lib/apt/podman/3.4.7 ./ # add here !
 ```
 
 Upgrade Podman
@@ -96,20 +96,22 @@ Upgrade Podman
 ```bash
 $ apt-get update
 
-$ apt-get --only-upgrade --no-install-recommends install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose libc6
+$ apt-get --only-upgrade --no-install-recommends install podman buildah skopeo fuse-overlayfs slirp4netns golang-github-containers-buildah-dev golang-github-containers-common golang-github-containers-common-dev golang-github-containers-image golang-github-containers-image-dev golang-github-containers-libpod-dev golang-github-containers-ocicrypt-dev golang-github-containers-psgo-dev golang-github-containers-storage-dev golang-github-containernetworking-plugin-dnsname golang-github-containernetworking-plugins-dev podman-compose crun libc6 podman-compose
 ```
 
 Check Podman
 
 ```bash
-$ podman --log-level=debug info
+# non rootless mode
+$ sudo podman --log-level=debug info
 # No error messages
 ```
 
 Check Podman-compose
 
 ```bash
-podman-compose --version
+# non rootless mode
+$ sudo podman-compose --version
 ['podman', '--version', '']
 using podman version: 3.4.7
 podman-composer version  1.0.3
@@ -124,9 +126,145 @@ exit code: 0
 
 ### Debian 11:
 
+Make rootless the config files
+
+```bash
+# config files for root in the following
+
+$ mv /etc/containers/containers.conf /etc/containers/containers.conf.old
+$ mv /etc/containers/libpod.conf /etc/containers/libpod.conf.old
+$ mv /etc/containers/storage.conf /etc/containers/storage.conf.old
+
+$ cat << EOF > /etc/containers/containers.conf 
+[containers]
+default_capabilities = [
+  "CHOWN",
+  "DAC_OVERRIDE",
+  "FOWNER",
+  "FSETID",
+  "KILL",
+  "NET_BIND_SERVICE",
+  "SETFCAP",
+  "SETGID",
+  "SETPCAP",
+  "SETUID",
+  "SYS_CHROOT"
+]
+default_sysctls = [
+  "net.ipv4.ping_group_range=0 0",
+]
+rootless_networking = "slirp4netns"
+[secrets]
+[secrets.opts]
+[network]
+[engine]
+network_cmd_path = "/usr/bin/slirp4netns"
+[engine.runtimes]
+[engine.volume_plugins]
+[machine]
+EOF
+
+$ cat << EOF > /etc/containers/libpod.conf 
+image_default_transport = "docker://"
+conmon_path = [
+    "/usr/bin/conmon",
+    "/usr/sbin/conmon",
+    "/usr/libexec/podman/conmon",
+    "/usr/local/libexec/crio/conmon",
+    "/usr/lib/podman/bin/conmon",
+    "/usr/libexec/crio/conmon",
+    "/usr/lib/crio/bin/conmon"
+]
+conmon_env_vars = [
+    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+]
+cgroup_manager = "systemd"
+tmp_dir = "/var/run/libpod"
+max_log_size = -1
+no_pivot_root = false
+cni_config_dir = "/etc/cni/net.d/"
+cni_plugin_dir = [
+    "/usr/lib/cni",
+    "/usr/local/lib/cni",
+    "/opt/cni/bin"
+]
+cni_default_network = "podman"
+infra_image = "k8s.gcr.io/pause:3.1"
+infra_command = "/pause"
+lock_type = "shm"
+num_locks = 2048
+runtime = "crun"
+runtime_supports_json = ["crun", "runc"]
+runtime_supports_nocgroups = ["crun"]
+[runtimes]
+runc = [
+    "/usr/sbin/runc",
+]
+crun = [
+    "/usr/bin/crun"
+]
+EOF
+
+$ cat << EOF > /etc/containers/storage.conf
+[storage]
+driver = "overlay"
+runroot = "/run/containers/storage"
+graphroot = "/var/lib/containers/storage"
+[storage.options]
+additionalimagestores = [
+]
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"
+mountopt = "nodev"
+[storage.options.thinpool]
+EOF
+
+# config files for user in the following
+
+$ mv ~/.config/containers/storage.conf ~/.config/containers/storage.conf.old
+
+$ cat << EOF > ~/.config/containers/storage.conf
+[storage]
+driver = "overlay"
+runroot = "/run/containers/storage"
+graphroot = "/var/lib/containers/storage"
+rootless_storage_path = "$HOME/.local/share/containers/storage"
+[storage.options]
+additionalimagestores = [
+]
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"
+mountopt = "nodev"
+[storage.options.thinpool]
+EOF
+```
+
+#### Adjust the permission of folders
+
+```bash
+$ mkdir ~/.podman
+
+$ cat << EOF > ~/.podman/podman.sh
+#!/bin/bash
+PURPLE="\[$(tput setaf 12)\]"
+RESET="\[$(tput sgr0)\]"
+PS1="${PURPLE}Podman User >${RESET} "
+
+# adjust the permission of folders
+sudo chown -R "\$USER"."\$USER" /var/lib/containers
+sudo chown -R "\$USER"."\$USER" /run/containers
+sudo chown -R "\$USER"."\$USER" /run/libpod
+
+# firewall forward
+sudo iptables -P FORWARD ACCEPT
+EOF
+
+$ . ~/.podman/podman.sh
+```
+
 #### Check Podman information
 
-debug information
+Get Podman information
 
 ```bash
 $ podman --log-level=debug info
@@ -186,7 +324,7 @@ DEBU[0000] Loading registries configuration "/etc/containers/registries.conf.d/s
 DEBU[0000] Called info.PersistentPostRunE(podman --log-level=debug info) 
 ```
 
-plugin information
+Get plugin information
 
 ```yaml
 host:
@@ -311,17 +449,28 @@ version:
   Version: 3.4.7
 ```
 
-#### cgroup V2 support
+# Podman Debug
 
-`crun` is smaller, works faster than runc, and supports `cgroup v2`. Then cgroup v2 controls and limits resources to make podman `rootless mode`.
+## Could not upgrade podman buildah and skopeo packages ?
 
-
-
-
+Solution:
 
 ```bash
-sudo sysctl kernel.unprivileged_userns_clone # set to 1
+# install libc6 package
+$ apt-get install -y libc6_2.33-7_amd64.deb libc6_2.33-7_i386.deb
 ```
 
+## Podman-compose could not mount container network ?
 
+Solution:
 
+```bash
+# upgrage
+$ apt-get install -y containernetworking-plugins_1.1.0+ds1-1+b1_amd64.deb
+```
+
+# Podman Tools
+
+Podman desktop graphical interface tools
+
+- [podman-desktop-companion](https://iongion.github.io/podman-desktop-companion/)

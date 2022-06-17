@@ -20,6 +20,6 @@ services:
       - JAEGER_SAMPLER_PARAM=1
       - JAEGER_REPORTER_LOG_SPANS=true
   jaeger:
-    image: jaegertracing/all-in-one
+    image: docker.io/jaegertracing/all-in-one
     ports:
       - "16686:16686"
